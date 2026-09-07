@@ -1,0 +1,172 @@
+// Prisma schema for TECNOLOGIA DEL CELULAR HD
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  VENDEDOR
+}
+
+enum ProductStatus {
+  AVAILABLE
+  OUT_OF_STOCK
+  HIDDEN
+}
+
+enum ProductCondition {
+  NUEVO
+  USADO
+  REACONDICIONADO
+}
+
+enum QuoteStatus {
+  PENDING_WHATSAPP
+  CONTACTED
+  CONFIRMED
+  CANCELLED
+}
+
+enum InteractionType {
+  WHATSAPP_QUOTE
+  WHATSAPP_CONSULTATION
+  PHONE_CALL
+  STORE_VISIT
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(VENDEDOR)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  quotes       Quote[]
+  interactions Interaction[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                 String           @id @default(uuid())
+  internalCode       String?          @unique
+  name               String
+  slug               String           @unique
+  description        String
+  brand              String
+  model              String
+  price              Int              // Precios en enteros COP (ej. 1850000)
+  previousPrice      Int?
+  discountPercentage Int?
+  stock              Int              @default(0)
+  status             ProductStatus    @default(AVAILABLE)
+  condition          ProductCondition @default(NUEVO)
+  warranty           String?
+  features           String[]         @default([])
+  images             String[]         @default([])
+  isFeatured         Boolean          @default(false)
+  hasActivePromotion Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  categoryId         String
+  category           Category         @relation(fields: [categoryId], references: [id])
+  quoteItems         QuoteItem[]
+
+  @@map("products")
+}
+
+model Customer {
+  id             String         @id @default(uuid())
+  name           String
+  whatsapp       String         @unique
+  email          String?
+  consentPromo   Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  quotes         Quote[]
+  interactions   Interaction[]
+
+  @@map("customers")
+}
+
+model Quote {
+  id             String        @id @default(uuid())
+  quoteNumber    String        @unique // Ej. COT-1001
+  status         QuoteStatus   @default(PENDING_WHATSAPP)
+  deliveryMethod String        @default("Recoger en tienda")
+  totalEstimated Int           // Entero COP
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  customerId     String
+  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  assignedUserId String?
+  assignedUser   User?         @relation(fields: [assignedUserId], references: [id])
+
+  items          QuoteItem[]
+  interactions   Interaction[]
+
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id             String    @id @default(uuid())
+  quantity       Int       @default(1)
+  unitPrice      Int       // Entero COP al momento de cotizar
+  subtotal       Int
+
+  quoteId        String
+  quote          Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id])
+
+  @@map("quote_items")
+}
+
+model Interaction {
+  id          String          @id @default(uuid())
+  type        InteractionType @default(WHATSAPP_QUOTE)
+  channel     String          @default("WhatsApp")
+  summary     String
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  customerId  String
+  customer    Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  quoteId     String?
+  quote       Quote?          @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  userId      String?
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("interactions")
+}
