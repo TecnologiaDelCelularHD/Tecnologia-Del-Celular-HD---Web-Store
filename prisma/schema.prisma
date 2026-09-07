@@ -98,6 +98,7 @@ model Product {
   slug               String           @unique
   description        String
   model              String
+  features           String[]         @default([])
   price              Int              // En COP enteros (ej. 1850000)
   previousPrice      Int?
   stock              Int              @default(0)

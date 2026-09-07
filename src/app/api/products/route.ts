@@ -6,6 +6,7 @@ import { z } from 'zod';
 // Validation schemas using zod
 const createSchema = z.object({
   name: z.string().min(1),
+  model: z.string().optional(),
   sku: z.string().min(1),
   slug: z.string().optional(),
   description: z.string().optional(),
@@ -31,6 +32,7 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   name: z.string().optional(),
+  model: z.string().optional(),
   sku: z.string().optional(),
   slug: z.string().optional(),
   description: z.string().optional(),
@@ -132,6 +134,7 @@ export async function POST(request: Request) {
     const product = await prisma.product.create({
       data: {
         name: parsed.name,
+        model: parsed.model ?? parsed.name,
         sku: parsed.sku,
         slug,
         description: parsed.description ?? '',
@@ -186,6 +189,7 @@ export async function PATCH(request: Request) {
     const data: any = {};
     const updatableFields = [
       'name',
+      'model',
       'sku',
       'slug',
       'description',
@@ -198,7 +202,7 @@ export async function PATCH(request: Request) {
       'hasActivePromotion',
       'brandId',
       'categoryId',
-    ];
+    ] as const;
     for (const field of updatableFields) {
       if (parsed[field] !== undefined) {
         data[field] = parsed[field];
