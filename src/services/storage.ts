@@ -16,23 +16,21 @@ class LocalStorageAdapter implements StorageAdapter {
   }
 
   async uploadFile(file: Buffer, filename: string): Promise<string> {
-    const uniqueName = Date.now() + '-' + filename.replace(/\s+/g, '-');
+    const cleanFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const uniqueName = Date.now() + '-' + cleanFilename;
     const filePath = path.join(this.uploadDir, uniqueName);
     await fs.promises.writeFile(filePath, file);
     return '/uploads/' + uniqueName;
   }
 }
 
-// Adaptador listo para cuando se configure BLOB_READ_WRITE_TOKEN en producción
 class VercelBlobStorageAdapter implements StorageAdapter {
   async uploadFile(file: Buffer, filename: string): Promise<string> {
-    // Si no está configurado, fallback automático a local
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
       const local = new LocalStorageAdapter();
       return local.uploadFile(file, filename);
     }
-    // Dynamic import o SDK oficial cuando se active
     throw new Error('Vercel Blob token configurado pero no inicializado en V1');
   }
 }

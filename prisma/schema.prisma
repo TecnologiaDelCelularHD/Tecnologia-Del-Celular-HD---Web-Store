@@ -16,9 +16,9 @@ enum Role {
 }
 
 enum ProductStatus {
-  AVAILABLE
+  ACTIVE
+  INACTIVE
   OUT_OF_STOCK
-  HIDDEN
 }
 
 enum ProductCondition {
@@ -35,6 +35,10 @@ enum QuoteStatus {
 }
 
 enum InteractionType {
+  PRODUCT_VIEW
+  ADD_TO_CART
+  CART
+  QUOTE_CREATED
   WHATSAPP_QUOTE
   WHATSAPP_CONSULTATION
   PHONE_CALL
@@ -57,46 +61,87 @@ model User {
   @@map("users")
 }
 
+model Brand {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  logo      String?
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  products  Product[]
+
+  @@index([slug, active])
+  @@map("brands")
+}
+
 model Category {
   id          String    @id @default(uuid())
   name        String    @unique
   slug        String    @unique
   description String?
+  active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   products    Product[]
 
+  @@index([slug, active])
   @@map("categories")
 }
 
 model Product {
   id                 String           @id @default(uuid())
-  internalCode       String?          @unique
+  sku                String           @unique
   name               String
   slug               String           @unique
   description        String
-  brand              String
   model              String
-  price              Int              // Precios en enteros COP (ej. 1850000)
+  price              Int              // En COP enteros (ej. 1850000)
   previousPrice      Int?
-  discountPercentage Int?
   stock              Int              @default(0)
-  status             ProductStatus    @default(AVAILABLE)
+  status             ProductStatus    @default(ACTIVE)
   condition          ProductCondition @default(NUEVO)
   warranty           String?
-  features           String[]         @default([])
-  images             String[]         @default([])
   isFeatured         Boolean          @default(false)
   hasActivePromotion Boolean          @default(false)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
+  brandId            String
+  brand              Brand            @relation(fields: [brandId], references: [id])
+
   categoryId         String
   category           Category         @relation(fields: [categoryId], references: [id])
+
+  images             ProductImage[]
   quoteItems         QuoteItem[]
 
+  @@index([sku])
+  @@index([slug])
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([condition])
+  @@index([price])
+  @@index([isFeatured])
   @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  url       String
+  alt       String?
+  sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
 }
 
 model Customer {
@@ -133,6 +178,9 @@ model Quote {
   items          QuoteItem[]
   interactions   Interaction[]
 
+  @@index([quoteNumber])
+  @@index([status])
+  @@index([customerId])
   @@map("quotes")
 }
 
@@ -159,8 +207,8 @@ model Interaction {
   metadata    Json?
   createdAt   DateTime        @default(now())
 
-  customerId  String
-  customer    Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId  String?
+  customer    Customer?       @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   quoteId     String?
   quote       Quote?          @relation(fields: [quoteId], references: [id], onDelete: SetNull)
@@ -168,5 +216,7 @@ model Interaction {
   userId      String?
   user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([customerId])
+  @@index([quoteId])
   @@map("interactions")
 }

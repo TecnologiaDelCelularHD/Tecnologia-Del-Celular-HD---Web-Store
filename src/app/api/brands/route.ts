@@ -1,4 +1,4 @@
-// src/app/api/categories/route.ts
+// src/app/api/brands/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/db/prisma';
 import { z } from 'zod';
@@ -7,25 +7,22 @@ import { z } from 'zod';
 const createSchema = z.object({
   name: z.string().min(1),
   slug: z.string().optional(),
-  description: z.string().optional(),
+  logo: z.string().url().optional(),
   active: z.boolean().optional().default(true),
 });
 
 const updateSchema = z.object({
   name: z.string().optional(),
   slug: z.string().optional(),
-  description: z.string().optional(),
+  logo: z.string().url().optional(),
   active: z.boolean().optional(),
 });
 
-/** Helper to generate slug if not provided */
 function generateSlug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-/** GET /api/categories
- *  Supports pagination (page, limit), search (name/slug), and active filter.
- */
+/** GET /api/brands – pagination, search, active filter */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const page = Math.max(parseInt(searchParams.get('page') ?? '1'), 1);
@@ -43,9 +40,9 @@ export async function GET(req: NextRequest) {
     where.active = true;
   }
 
-  const [total, categories] = await Promise.all([
-    prisma.category.count({ where }),
-    prisma.category.findMany({
+  const [total, brands] = await Promise.all([
+    prisma.brand.count({ where }),
+    prisma.brand.findMany({
       where,
       include: { _count: { select: { products: true } } },
       orderBy: { name: 'asc' },
@@ -55,74 +52,66 @@ export async function GET(req: NextRequest) {
   ]);
 
   const totalPages = Math.ceil(total / limit);
-  return NextResponse.json({ categories, total, page, limit, totalPages });
+  return NextResponse.json({ brands, total, page, limit, totalPages });
 }
 
+/** POST /api/brands – create brand */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const parsed = createSchema.parse(body);
     const slug = parsed.slug ?? generateSlug(parsed.name);
-    const category = await prisma.category.create({
+    const brand = await prisma.brand.create({
       data: {
         name: parsed.name,
         slug,
-        description: parsed.description,
+        logo: parsed.logo,
         active: parsed.active,
       },
     });
-    return NextResponse.json(category, { status: 201 });
+    return NextResponse.json(brand, { status: 201 });
   } catch (error: any) {
-    console.error('Error creating category', error);
-    return NextResponse.json({ error: error.message ?? 'Error al crear categoría' }, { status: 500 });
+    console.error('Error creating brand', error);
+    return NextResponse.json({ error: error.message ?? 'Error al crear marca' }, { status: 500 });
   }
 }
 
-/** PATCH /api/categories/:id – update fields */
+/** PATCH /api/brands/:id – update fields */
 export async function PATCH(req: Request) {
   try {
     const url = new URL(req.url);
     const id = url.pathname.split('/').pop();
-    if (!id) throw new Error('Missing category id');
+    if (!id) throw new Error('Missing brand id');
     const body = await req.json();
     const parsed = updateSchema.parse(body);
     const data: any = {};
     if (parsed.name) data.name = parsed.name;
     if (parsed.slug) data.slug = parsed.slug;
-    if (parsed.description !== undefined) data.description = parsed.description;
+    if (parsed.logo !== undefined) data.logo = parsed.logo;
     if (parsed.active !== undefined) data.active = parsed.active;
     if (Object.keys(data).length === 0) throw new Error('No fields to update');
-
-    const category = await prisma.category.update({
-      where: { id },
-      data,
-    });
-    return NextResponse.json(category);
+    const brand = await prisma.brand.update({ where: { id }, data });
+    return NextResponse.json(brand);
   } catch (error: any) {
-    console.error('Error updating category', error);
-    return NextResponse.json({ error: error.message ?? 'Error al actualizar categoría' }, { status: 500 });
+    console.error('Error updating brand', error);
+    return NextResponse.json({ error: error.message ?? 'Error al actualizar marca' }, { status: 500 });
   }
 }
 
-/** DELETE /api/categories/:id – soft delete (active = false) */
+/** DELETE /api/brands/:id – soft delete */
 export async function DELETE(req: Request) {
   try {
     const url = new URL(req.url);
     const id = url.pathname.split('/').pop();
-    if (!id) throw new Error('Missing category id');
-    // prevent deletion if there are active products linked
-    const productCount = await prisma.product.count({ where: { categoryId: id, active: true } });
+    if (!id) throw new Error('Missing brand id');
+    const productCount = await prisma.product.count({ where: { brandId: id, active: true } });
     if (productCount > 0) {
-      return NextResponse.json({ error: 'No se puede eliminar categoría con productos activos' }, { status: 400 });
+      return NextResponse.json({ error: 'No se puede eliminar marca con productos activos' }, { status: 400 });
     }
-    const category = await prisma.category.update({
-      where: { id },
-      data: { active: false },
-    });
-    return NextResponse.json(category);
+    const brand = await prisma.brand.update({ where: { id }, data: { active: false } });
+    return NextResponse.json(brand);
   } catch (error: any) {
-    console.error('Error deleting category', error);
-    return NextResponse.json({ error: error.message ?? 'Error al eliminar categoría' }, { status: 500 });
+    console.error('Error deleting brand', error);
+    return NextResponse.json({ error: error.message ?? 'Error al eliminar marca' }, { status: 500 });
   }
 }
-
